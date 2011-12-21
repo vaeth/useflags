@@ -1,0 +1,11 @@
+#compdef useflags
+_arguments -s -S : \
+'(1 2 3 -)'{'--help','-h'}'[print a brief help]' \
+'(1 2 3 -)'{'--man','-\\?'}'[show extended help as a manpage]' \
+{'(--verbose)-v','(-v)--verbose'}'[verbose (default)]' \
+{'(--brief)-b','(-b)--brief'}'[brief\: only deal with effective state of flags]' \
+{'(--reverse)-r','(-r)--reverse'}'[swap meaning of old/new]' \
+{'(--file)-f+','(-f)--file='}'[SAVEPATH. Use SAVEPATH instead of /etc/portage/useflags]:savepath:_files' \
+'1:command:(save diff print cat diff64)' \
+'2::file:_files' \
+'3::file2:_files'
