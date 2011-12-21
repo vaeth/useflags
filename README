@@ -10,6 +10,8 @@ USE-Flags in the portage tree (and of the defaults in your profile).
 Since the auto-useflags of use.defaults are practically deprecated,
 these files are ignored by this script.
 
+If you have installed app-portage/eix, this script will run slightly faster.
+
 For installation, copy useflags with executable permission in your path.
 To obtain support for zsh completion, you can copy _useflags to a
 directory of zsh's $fpath
