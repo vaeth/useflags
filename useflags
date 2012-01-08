@@ -10,7 +10,7 @@ useflags - save or compare useflags
 
 =head1 SYNOPSIS
 
-B<useflags> [options] B<save>|B<diff>|B<print>|B<cat>|B<diff64>
+B<useflags> [options] B<save>|B<diff>|B<print>|B<cat>|B<diff64>|B<help>|B<man>
 
 B<useflags> [options] B<save> I<file>
 
@@ -20,7 +20,7 @@ B<useflags> [options] B<diff> I<file1> I<file2>
 
 B<useflags> [options] B<cat> I<file>
 
-B<useflags --man> for a detailed description
+B<useflags --man> or <useflags man> for a detailed description
 
 =head1 DESCRIPTION
 
@@ -112,7 +112,7 @@ Last option
 
 =head1 VERSION
 
-Version 2.5
+Version 2.6
 
 =head1 AUTHOR
 
@@ -123,7 +123,10 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 sub message { my($text) = @_;
 	print STDERR "useflags: $text\n";
 }
-sub fatal { my($text) = @_; &message($text); exit 2 }
+sub fatal { my($text) = @_;
+	&message($text);
+	exit 2
+}
 
 # Parse Options:
 
@@ -141,10 +144,10 @@ GetOptions(
 	'reverse!', \$reverse,
 	'r', \$reverse,
 	'file|path|savepath|save|f|s|p=s', \$savepath,
-	'help|h', sub { pod2usage(1) },
+	'help|h', sub { pod2usage(0) },
 	'man|?', sub { pod2usage(-verbose => 2) }
-) or pod2usage(2);
-$#ARGV<0 and pod2usage(-verbose => 2);
+) or pod2usage(1);
+$#ARGV<0 and pod2usage(2);
 my $action = $ARGV[0];
 
 # Interpret the options:
@@ -166,17 +169,42 @@ my $documented = 4;
 sub entry2text { my($arrref) = @_;
 	my $isset = ($arrref->[$set]);
 	if($brief) {
-		if($arrref->[$masked]) { return "minus" }
-		if($isset) { if($isset > 0) { return "on" } else { return "minus" } }
+		if($arrref->[$masked]) {
+			return "minus"
+		}
+		if($isset) {
+			if($isset > 0) {
+				return "on"
+			}
+			else {
+				return "minus"
+			}
+		}
 		return "off"
 	}
 	my $rvalue;
-	if($isset) { if($isset > 0) { $rvalue = "on" } else { $rvalue = "minus" } }
-	else { $rvalue = "off" }
-	if($arrref->[$manual]) { $rvalue .= ", make.conf" }
-	if($arrref->[$default]) { $rvalue .= ", default" }
-	unless($arrref->[$documented]) { $rvalue .= ", undocumented" }
-	if($arrref->[$masked]) { $rvalue = "($rvalue)" }
+	if($isset) {
+		if($isset > 0) {
+			$rvalue = "on"
+		} else {
+			$rvalue = "minus"
+		}
+	}
+	else {
+		$rvalue = "off"
+	}
+	if($arrref->[$manual]) {
+		$rvalue .= ", make.conf"
+	}
+	if($arrref->[$default]) {
+		$rvalue .= ", default"
+	}
+	unless($arrref->[$documented]) {
+		$rvalue .= ", undocumented"
+	}
+	if($arrref->[$masked]) {
+		$rvalue = "($rvalue)"
+	}
 	return $rvalue
 }
 
@@ -184,8 +212,10 @@ sub text2entry { my($arrref,$text) = @_;
 	$arrref->[$set] = ($text =~ /\bon\b/i);
 	$arrref->[$manual] = ($text =~ /\bma[kn]/i);
 	if(($text =~ /\bmin/i) || ($text =~ /\-/) || ($text =~ /\bneg/i) ||
-		(($text =~ /\bfor/i) && ($text =~ /\boff/i)))
-		{ $arrref->[$set] = -1; $arrref->[$manual] = -1 }
+		(($text =~ /\bfor/i) && ($text =~ /\boff/i))) {
+		$arrref->[$set] = -1;
+		$arrref->[$manual] = -1
+	}
 	$arrref->[$default] = ($text =~ /\bdef/i);
 	$arrref->[$documented] = !($text =~ /\bundoc/i);
 	$arrref->[$masked] = (($text =~ /\bmask/i) || ($text =~ /\(/) )
@@ -208,8 +238,9 @@ sub store { my($force, $useflags, $name, $nr, $secnr, $value) = @_;
 	my $entry = &entry($useflags, $name);
 	if($force || ($entry->[$nr] eq '')) {
 		$entry->[$nr] = $value;
-		if($secnr ne '')
-			{ $entry->[$secnr] = $value }
+		if($secnr ne '') {
+			$entry->[$secnr] = $value
+		}
 	}
 }
 
@@ -223,18 +254,21 @@ sub useset { my($useflags, $match, $doset) = @_;
 	$match =~ s/\?/./g;
 	$match =~ s/\*/.*/g;
 	foreach (keys %$useflags) {
-		if(/^$match$/)
-			{ &store(1, $useflags, $_, $manual, $set, $doset) }
+		if(/^$match$/) {
+			&store(1, $useflags, $_, $manual, $set, $doset)
+		}
 	}
 }
 
 # Function to parse a profile recursively
 
 sub readprofile { my($mustexist, $profile, $useflags, $count) = @_;
-	if($mustexist && !(-d $profile))
-		{ &fatal("$profile is not a directory") }
-	if($count > 1000)
-		{ &fatal("profile has too many parents; probably recursion") }
+	if($mustexist && !(-d $profile)) {
+		&fatal("$profile is not a directory")
+	}
+	if($count > 1000) {
+		&fatal("profile has too many parents; probably recursion")
+	}
 	if(-r "$profile/parent") {
 		my @parents = ();
 		open(IN, '<', "$profile/parent") or
@@ -243,8 +277,9 @@ sub readprofile { my($mustexist, $profile, $useflags, $count) = @_;
 			chomp;
 			s/^\s*([^\s]*).*$/$1/;
 			s/^#.*//;
-			if($_ ne '')
-				{ push @parents, $_ }
+			if($_ ne '') {
+				push(@parents, $_)
+			}
 		}
 		close(IN);
 		for(@parents) {
@@ -261,13 +296,15 @@ sub readprofile { my($mustexist, $profile, $useflags, $count) = @_;
 			s/^\s*([^\s]*).*/$1/;
 			s/^#.*//;
 			if($_ ne '') {
-				if(/^\-(.*)/)
-					{ &store(1, $useflags, $1, $masked, '', 0) }
-				else
-					{ &store('', $useflags, $_, $masked, '', 1) }
+				if(/^\-(.*)/) {
+					&store(1, $useflags, $1, $masked, '', 0)
+				}
+				else {
+					&store('', $useflags, $_, $masked, '', 1)
+				}
 			}
 		}
-		close(IN);
+		close(IN)
 	}
 	if(-e "$profile/use.desc") {
 		open(IN, '<', "$profile/use.desc") or
@@ -276,10 +313,11 @@ sub readprofile { my($mustexist, $profile, $useflags, $count) = @_;
 			chomp;
 			s/^\s*([^\s]*).*/$1/;
 			s/^#.*//;
-			if($_ ne '')
-				{ &store(1, $useflags, $_, $documented, '', 1) }
+			if($_ ne '') {
+				&store(1, $useflags, $_, $documented, '', 1)
+			}
 		}
-		close(IN);
+		close(IN)
 	}
 	if(-e "$profile/use.local.desc") {
 		open(IN, '<', "$profile/use.local.desc") or
@@ -292,7 +330,7 @@ sub readprofile { my($mustexist, $profile, $useflags, $count) = @_;
 			if($_ ne '')
 				{ &store(1, $useflags, $_, $documented, '', 1) }
 		}
-		close(IN);
+		close(IN)
 	}
 	# We read the use.defaults to find undocumented useflags, 
 	# but we do not set them.
@@ -303,10 +341,11 @@ sub readprofile { my($mustexist, $profile, $useflags, $count) = @_;
 			chomp;
 			s/^\s*([^\s]*).*$/$1/;
 			s/^#.*//;
-			if($_ ne '')
-				{ &entry($useflags, $_) }
+			if($_ ne '') {
+				&entry($useflags, $_)
+			}
 		}
-		close(IN);
+		close(IN)
 	}
 	if(-e "$profile/make.defaults") {
 		(-r "$profile/make.defaults") or
@@ -316,13 +355,15 @@ sub readprofile { my($mustexist, $profile, $useflags, $count) = @_;
 			chomp;
 			s/^\s*([^\s]*).*$/$1/;
 			if($_ ne '') {
-				if(/^\-(.*)/)
-					{ &store('', $useflags, $1, $default, $set, 0) }
-				else
-					{ &store('', $useflags, $_, $default, $set, 1) }
+				if(/^\-(.*)/) {
+					&store('', $useflags, $1, $default, $set, 0)
+				}
+				else {
+					&store('', $useflags, $_, $default, $set, 1)
+				}
 			}
 		}
-		close(IN);
+		close(IN)
 	}
 }
 
@@ -350,13 +391,17 @@ sub getflags { my($useflags) = @_;
 		$overlays = `portageq portdir_overlay`;
 		chomp($overlays);
 	}
-	if(-r "/etc/make.conf")
-	{ $iuse = `bash -c \'\. /etc/make.conf ; printf \%s \"\$USE\"\'` }
-	if(-r "/etc/portage/make.conf")
-	{ $iuse .= `bash -c \'\. /etc/portage/make.conf ; printf \%s \"\$USE\"\'` }
+	if(-r "/etc/make.conf") {
+		$iuse = `bash -c \'\. /etc/make.conf ; printf \%s \"\$USE\"\'`
+	}
+	if(-r "/etc/portage/make.conf") {
+		$iuse .= `bash -c \'\. /etc/portage/make.conf ; printf \%s \"\$USE\"\'`
+	}
 
 	# If PORTDIR is not specified, we use the default
-	if($portdir eq '') { $portdir = '/usr/portage' }
+	if($portdir eq '') {
+		$portdir = '/usr/portage'
+	}
 
 	# Now we parse all the profiles
 	# (in /etc/make.profile, PORTDIR, OVERLAY, and in /etc/portage/profile)
@@ -440,12 +485,15 @@ sub compareflags { my($oldflags, $newflags);
 			$previous = $_; # make sure to avoid side effects
 			my $old = 'NONE';
 			my $new = $old;
-			if(exists(${$oldflags}{$previous}))
-				{ $old = &entry2text(&entry($oldflags, $previous)) }
-			if(exists(${$newflags}{$previous}))
-				{ $new = &entry2text(&entry($newflags, $previous)) }
-			if($old ne $new)
-				{ print "$previous: $old -> $new\n" }
+			if(exists(${$oldflags}{$previous})) {
+				$old = &entry2text(&entry($oldflags, $previous))
+			}
+			if(exists(${$newflags}{$previous})) {
+				$new = &entry2text(&entry($newflags, $previous))
+			}
+			if($old ne $new) {
+				print "$previous: $old -> $new\n"
+			}
 		}
 	}
 }
@@ -489,7 +537,17 @@ elsif($action =~ /diff/i || $action =~ /comp/i) {
 		&loadflags(\%useflags, $savepath);
 		&getflags(\%altflags);
 	}
-	else { pod2usage('too many arguments for "diff"') }
+	else {
+		pod2usage('too many arguments for "diff"')
+	}
 	&compareflags(\%useflags, \%altflags)
 }
-else { pod2usage("Unknown action: $action") }
+elsif($action =~ /help/i) {
+	pod2usage(0)
+}
+elsif($action =~ /man/i) {
+	pod2usage(-verbose => 2)
+}
+else {
+	pod2usage("Unknown action: $action")
+}

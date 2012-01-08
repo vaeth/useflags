@@ -6,6 +6,6 @@ _arguments -s -S : \
 {'(--brief)-b','(-b)--brief'}'[brief\: only deal with effective state of flags]' \
 {'(--reverse)-r','(-r)--reverse'}'[swap meaning of old/new]' \
 {'(--file)-f+','(-f)--file='}'[SAVEPATH. Use SAVEPATH instead of /etc/portage/useflags]:savepath:_files' \
-'1:command:(save diff print cat diff64)' \
+'1:command:(save diff print cat diff64 help man)' \
 '2::file:_files' \
 '3::file2:_files'
