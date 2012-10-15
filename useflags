@@ -175,8 +175,7 @@ sub entry2text { my($arrref) = @_;
 		if($isset) {
 			if($isset > 0) {
 				return "on"
-			}
-			else {
+			} else {
 				return "minus"
 			}
 		}
@@ -189,8 +188,7 @@ sub entry2text { my($arrref) = @_;
 		} else {
 			$rvalue = "minus"
 		}
-	}
-	else {
+	} else {
 		$rvalue = "off"
 	}
 	if($arrref->[$manual]) {
@@ -298,8 +296,7 @@ sub readprofile { my($mustexist, $profile, $useflags, $count) = @_;
 			if($_ ne '') {
 				if(/^\-(.*)/) {
 					&store(1, $useflags, $1, $masked, '', 0)
-				}
-				else {
+				} else {
 					&store('', $useflags, $_, $masked, '', 1)
 				}
 			}
@@ -357,8 +354,7 @@ sub readprofile { my($mustexist, $profile, $useflags, $count) = @_;
 			if($_ ne '') {
 				if(/^\-(.*)/) {
 					&store('', $useflags, $1, $default, $set, 0)
-				}
-				else {
+				} else {
 					&store('', $useflags, $_, $default, $set, 1)
 				}
 			}
@@ -384,17 +380,19 @@ sub getflags { my($useflags) = @_;
 	if($eix_functions ne '') {
 		$portdir = &eixreadvar('PORTDIR');
 		$overlays = &eixreadvar('PORTDIR_OVERLAY');
-	}
-	else {
+	} else {
 		$portdir = `portageq portdir`;
 		chomp($portdir);
 		$overlays = `portageq portdir_overlay`;
 		chomp($overlays);
 	}
-	if(-r "/etc/make.conf") {
+	if(-r '/etc/make.conf') {
 		$iuse = `bash -c \'\. /etc/make.conf ; printf \%s \"\$USE\"\'`
+	} else {
+		$iuse = ''
 	}
-	if(-r "/etc/portage/make.conf") {
+	if(-r '/etc/portage/make.conf') {
+		$iuse .= ' ' if($iuse ne '');
 		$iuse .= `bash -c \'\. /etc/portage/make.conf ; printf \%s \"\$USE\"\'`
 	}
 
@@ -410,11 +408,9 @@ sub getflags { my($useflags) = @_;
 	%{$useflags} = ();
 	if(-d '/etc/make.profile') {
 		&readprofile(1, '/etc/make.profile', $useflags)
-	}
-	elsif(-d '/etc/portage/make.profile') {
+	} elsif(-d '/etc/portage/make.profile') {
 		&readprofile(1, '/etc/portage/make.profile', $useflags)
-	}
-	else {
+	} else {
 		&fatal("cannot find directory /etc\{,/portage\}/make.profile")
 	}
 	$_ = "$portdir $overlays";
@@ -433,8 +429,7 @@ sub getflags { my($useflags) = @_;
 		s/^\s*([^\s]*).*$/$1/;
 		if(/^\-(.*)/) {
 			useset($useflags, $1, -1)
-		}
-		else {
+		} else {
 			useset($useflags, $_, 1)
 		}
 	}
@@ -475,8 +470,11 @@ sub loadflags { my($useflags, $name) = @_;
 }
 
 sub compareflags { my($oldflags, $newflags);
-	if($reverse){ ($newflags, $oldflags) = @_ }
-	else        { ($oldflags, $newflags) = @_ }
+	if($reverse) {
+		($newflags, $oldflags) = @_
+	} else {
+		($oldflags, $newflags) = @_
+	}
 	my @array = (keys %$oldflags);
 	push @array, (keys %$newflags);
 	my $previous = '#';
@@ -503,51 +501,47 @@ my %altflags = (); keys %altflags = 2000;
 
 if($action =~ /save$/i || $action =~ /store/i) {
 	my $name = $savepath;
-	if($#ARGV == 1)   { $name = $ARGV[1] }
-	elsif($#ARGV != 0){ pod2usage('too many arguments for "save"') }
+	if($#ARGV == 1) {
+		$name = $ARGV[1]
+	} elsif($#ARGV != 0) {
+		pod2usage('too many arguments for "save"')
+	}
 	&getflags(\%useflags);
 	&saveflags(\%useflags, $name)
-}
-elsif($action =~ /echo/i || $action =~ /print/i) {
+} elsif($action =~ /echo/i || $action =~ /print/i) {
 	&getflags(\%useflags);
 	&printflags(\%useflags)
-}
-elsif($action =~ /cat/i || $action =~ /old/i || $action =~ /saved/i) {
+} elsif($action =~ /cat/i || $action =~ /old/i || $action =~ /saved/i) {
 	my $name = $savepath;
-	if($#ARGV == 1)   { $name = $ARGV[1] }
-	elsif($#ARGV !=0 ){ pod2usage('too many arguments for "cat"') }
+	if($#ARGV == 1) {
+		$name = $ARGV[1]
+	} elsif($#ARGV !=0 ) {
+		pod2usage('too many arguments for "cat"')
+	}
 	&loadflags(\%useflags, $name);
 	&printflags(\%useflags)
-}
-elsif($action =~ /diff\D*(\d+)/i || $action =~ /comp\D*(\d+)/i) {
+} elsif($action =~ /diff\D*(\d+)/i || $action =~ /comp\D*(\d+)/i) {
 	&loadflags(\%useflags, "/gentoo32$savepath");
 	&loadflags(\%altflags, "/gentoo64$savepath");
 	&compareflags(\%useflags, \%altflags)
-}
-elsif($action =~ /diff/i || $action =~ /comp/i) {
+} elsif($action =~ /diff/i || $action =~ /comp/i) {
 	if($#ARGV == 2) {
 		&loadflags(\%useflags, $ARGV[1]);
 		&loadflags(\%altflags, $ARGV[2]);
-	}
-	elsif($#ARGV == 1) {
+	} elsif($#ARGV == 1) {
 		&loadflags(\%useflags, $ARGV[1]);
 		&loadflags(\%altflags, $savepath);
-	}
-	elsif($#ARGV == 0) {
+	} elsif($#ARGV == 0) {
 		&loadflags(\%useflags, $savepath);
 		&getflags(\%altflags);
-	}
-	else {
+	} else {
 		pod2usage('too many arguments for "diff"')
 	}
 	&compareflags(\%useflags, \%altflags)
-}
-elsif($action =~ /help/i) {
+} elsif($action =~ /help/i) {
 	pod2usage(0)
-}
-elsif($action =~ /man/i) {
+} elsif($action =~ /man/i) {
 	pod2usage(-verbose => 2)
-}
-else {
+} else {
 	pod2usage("Unknown action: $action")
 }
