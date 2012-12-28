@@ -222,7 +222,7 @@ sub text2entry { my($arrref,$text) = @_;
 # return reference to the entry $name in the hash %$useflags.
 # If $name does not exist, the entry becomes an empty array
 
-sub entry { my($useflags,$name) = @_;
+sub entry { my($useflags, $name) = @_;
 	exists(${$useflags}{$name}) or ${$useflags}{$name} = ['','','','',''];
 	return ${$useflags}{$name}
 }
@@ -283,9 +283,13 @@ sub readprofile { my($mustexist, $profile, $useflags, $count) = @_;
 		for(@parents) {
 			my $name = $_;
 			$name = "$profile/$_" unless(/^\//);
-			&readprofile(1, $name, $useflags, $count+1)
+			&readprofile(1, $name, $useflags, $count + 1)
 		}
 	}
+	&readprofiledata($profile, $useflags, 1)
+}
+
+sub readprofiledata { my($profile, $useflags, $readmakedefaults) = @_;
 	if(-e "$profile/use.mask") {
 		open(IN, '<', "$profile/use.mask") or
 			&fatal("cannot read $profile/use.mask");
@@ -329,7 +333,7 @@ sub readprofile { my($mustexist, $profile, $useflags, $count) = @_;
 		}
 		close(IN)
 	}
-	# We read the use.defaults to find undocumented useflags, 
+	# We read the use.defaults to find undocumented useflags,
 	# but we do not set them.
 	if(-e "$profile/use.defaults") {
 		open(IN, '<', "$profile/use.defaults") or
@@ -344,56 +348,91 @@ sub readprofile { my($mustexist, $profile, $useflags, $count) = @_;
 		}
 		close(IN)
 	}
+	return unless($readmakedefaults);
 	if(-e "$profile/make.defaults") {
 		(-r "$profile/make.defaults") or
 			&fatal("cannot read $profile/make.defaults");
-		$_ = `bash -c \'\. \"$profile/make.defaults\" ; printf \%s \"\$USE\"\'`;
-		foreach (split) {
-			chomp;
-			s/^\s*([^\s]*).*$/$1/;
-			if($_ ne '') {
-				if(/^\-(.*)/) {
-					&store('', $useflags, $1, $default, $set, 0)
-				} else {
-					&store('', $useflags, $_, $default, $set, 1)
-				}
+		my $iuse = `bash -c \'\. \"$profile/make.defaults\" ; printf \%s \"\$USE\"\'`;
+		&useset_profile($iuse, $useflags)
+	}
+}
+
+sub useset_profile {
+	my $useflags;
+	($_, $useflags) = @_;
+	foreach (split) {
+		chomp;
+		s/^\s*([^\s]*).*$/$1/;
+		if($_ ne '') {
+			if(/^\-(.*)/) {
+				&store('', $useflags, $1, $default, $set, 0)
+			} else {
+				&store('', $useflags, $_, $default, $set, 1)
 			}
 		}
-		close(IN)
 	}
 }
 
 my $eix_functions = undef;
-sub eixreadvar {
-	my($name) = @_;
+sub eixreadvar { my($name) = @_;
 	return `\. \'$eix_functions\' \&\& ReadVar x $name \&\& printf \'\%s\' \"\$x\"`
+}
+
+sub eixreadprofile { my ($useflags) = @_;
+	my $profile_paths = `eix --print-profile-paths 2>/dev/null`;
+	chomp($profile_paths);
+	return '' if($profile_paths eq '');
+	for my $profile (split('\0', $profile_paths)) {
+		chomp($profile);
+		chop($profile);
+		&readprofiledata($profile, $useflags, '') unless($profile eq '')
+	}
+	return 1
 }
 
 sub getflags { my($useflags) = @_;
 	# "Parse" the values of USE, PORTDIR, PORTDIR_OVERLAY from make.conf
 	# and store it in into $iuse, $portdir, $overlays
-	my($iuse, $portdir, $overlays);
 	if(!defined($eix_functions)) {
 		$eix_functions = `command -v eix-functions.sh 2\>/dev/null`;
 		chomp($eix_functions)
 	}
+	my($iuse, $portdir, $overlays, $configroot);
 	if($eix_functions ne '') {
+		$ENV{'PRINT_APPEND'} = '';
 		$portdir = &eixreadvar('PORTDIR');
 		$overlays = &eixreadvar('PORTDIR_OVERLAY');
+		$configroot = &eixreadvar('PORTAGE_CONFIGROOT');
+		chop($portdir);
+		if(&eixreadprofile($useflags)) {
+			$_ = "$portdir $overlays";
+			foreach(split) {
+				chomp;
+				&readprofiledata("$_/profiles", $useflags, '')
+			}
+			&readprofiledata("${configroot}/etc/portage/profile", $useflags, '');
+			$iuse = `eix --print USE.profile`;
+			&useset_profile($iuse, $useflags);
+			&useset_make_conf(&eixreadvar('USE'), $useflags);
+			return
+		}
 	} else {
 		$portdir = `portageq portdir`;
 		chomp($portdir);
 		$overlays = `portageq portdir_overlay`;
 		chomp($overlays);
+		$configroot = $ENV{'PORTAGE_CONFIGROOT'};
+		$configroot = '' unless(defined($configroot));
 	}
-	if(-r '/etc/make.conf') {
-		$iuse = `bash -c \'\. /etc/make.conf ; printf \%s \"\$USE\"\'`
+	my $iuse;
+	if(-r "${configroot}/etc/make.conf") {
+		$iuse = `bash -c \'\. ${configroot}/etc/make.conf ; printf \%s \"\$USE\"\'`
 	} else {
 		$iuse = ''
 	}
-	if(-r '/etc/portage/make.conf') {
+	if(-r "${configroot}/etc/portage/make.conf") {
 		$iuse .= ' ' if($iuse ne '');
-		$iuse .= `bash -c \'\. /etc/portage/make.conf ; printf \%s \"\$USE\"\'`
+		$iuse .= `bash -c \'\. ${configroot}/etc/portage/make.conf ; printf \%s \"\$USE\"\'`
 	}
 
 	# If PORTDIR is not specified, we use the default
@@ -406,22 +445,26 @@ sub getflags { my($useflags) = @_;
 	# using the recursive function &readprofile.
 
 	%{$useflags} = ();
-	if(-d '/etc/make.profile') {
-		&readprofile(1, '/etc/make.profile', $useflags)
-	} elsif(-d '/etc/portage/make.profile') {
-		&readprofile(1, '/etc/portage/make.profile', $useflags)
+	if(-d "${configroot}/etc/make.profile") {
+		&readprofile(1, "${configroot}/etc/make.profile", $useflags)
+	} elsif(-d "${configroot}/etc/portage/make.profile") {
+		&readprofile(1, "${configroot}/etc/portage/make.profile", $useflags)
 	} else {
-		&fatal("cannot find directory /etc\{,/portage\}/make.profile")
+		&fatal("cannot find directory ${configroot}/etc\{,/portage\}/make.profile")
 	}
 	$_ = "$portdir $overlays";
 	foreach(split) {
-		chomp; &readprofile('', "$_/profiles", $useflags)
+		chomp;
+		&readprofile('', "$_/profiles", $useflags)
 	}
-	&readprofile('', '/etc/portage/profile', $useflags);
+	&readprofile('', "${configroot}/etc/portage/profile", $useflags);
+	&useset_make_conf($iuse, $useflags);
+}
 
-	# Now we interpret the value of the USE variable in /etc/make.conf:
-
-	$_ = $iuse;
+# Now we interpret the value of the USE variable in /etc/make.conf:
+sub useset_make_conf {
+	my $useflags;
+	($_, $useflags) = @_;
 	(/^\s*$/) and
 		&fatal("No USE variable specified in /etc/make.conf or /etc/portage/make.conf");
 	foreach (split) {
