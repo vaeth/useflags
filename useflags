@@ -1,4 +1,4 @@
-#! /usr/bin/perl
+#!/usr/bin/perl
 use strict;
 use integer;
 use Pod::Usage;
@@ -112,7 +112,7 @@ Last option
 
 =head1 VERSION
 
-Version 2.6
+Version 3.2
 
 =head1 AUTHOR
 
