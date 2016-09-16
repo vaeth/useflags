@@ -1,13 +1,16 @@
 #!/usr/bin/env perl
 BEGIN { require 5.006_001 }
-our $VERSION = 'v4.0.0';
-eval 'package Useflags $VERSION' if($] ge '5.012');
+our $VERSION = 'v4.1.0';
+eval "package Useflags $VERSION" if($] ge '5.012');
 use strict;
 use integer;
 use File::Spec ();
 use Getopt::Long 2.24 ();
 #use Pod::Usage ();  # needed for --man, --help, some errors
 #use String::ShellQuote ();  # not mandatory but recommended: poor fallback
+#use File::Which ();  # not mandatory but recommended; there are fallbacks
+
+my $name = 'useflags';
 
 =encoding UTF-8
 
@@ -149,12 +152,12 @@ sub pod2usage {
 }
 
 sub version {
-	print('useflags ', $VERSION, "\n");
+	print($name, ' ', $VERSION, "\n");
 	exit(0)
 }
 
 sub message {
-	print(STDERR 'useflags: ', @_, "\n")
+	print(STDERR $name, ': ', @_, "\n")
 }
 
 sub fatal {
@@ -195,27 +198,49 @@ sub join_quoted {
 {
 	my $devnull = undef;
 sub devnull {
+	return $devnull if(defined($devnull));
 	$devnull = &shell_quote_best_effort(File::Spec->devnull())
 }}
 
+# use File::Which module
+
+{
+	my $which = undef;  # A static closure
+sub which_which {
+	return $which if(defined($which));
+	eval {
+		require File::Which
+	};
+	$which = ($@ ? '' : 1)
+}}
+
+sub have_prg {
+	my ($a) = @_;
+	if(&which_which()) {
+		return defined(File::Which::which($a))
+	}
+	(system(&shell_quote_best_effort('command', '-v', $a)
+		. ' >' . &devnull() . ' 2>&1') == 0)
+}
+
 # Check whether eix is available. If yes, also export PRINT_APPEND=
-{ my $have_eix = undef;  # A closure static variable
+{
+	my $have_eix = undef;
 sub have_eix {
 	return $have_eix if(defined($have_eix));
-	my $devnull = &devnull();
-	$have_eix = (system('command -v eix >' . $devnull . ' 2>&1') == 0);
+	$have_eix = &have_prg('eix');
 	$ENV{'PRINT_APPEND'} = '' if($have_eix);
 	$have_eix
 }}
 
 sub read_var {
-	my ($name) = @_;
-	return $ENV{$name} if(exists($ENV{$name}));
-	my $devnull = &devnull();
+	my ($varname) = @_;
+	return $ENV{$varname} if(exists($ENV{$varname}));
 	my $have_eix = &have_eix();
 	my $cmd = &shell_quote_best_effort(($have_eix ?
-		('eix', '--print') : ('portageq', 'envvar')), $name);
-	my $result = `$cmd 2>$devnull`;
+		('eix', '--print') : ('portageq', 'envvar')), $varname)
+		. ' 2>' . &devnull();
+	my $result = `$cmd`;
 	$result = '' unless(defined($result));
 	chomp($result) unless($have_eix);
 	$result
@@ -278,23 +303,23 @@ sub text2entry {
 	$arrref->[$masked] = (($text =~ m{\bmask}i) || ($text =~ m{\(}) )
 }
 
-# return reference to the entry $name in the hash %$useflags.
-# If $name does not exist, the entry becomes an empty array
+# return reference to the entry $flag in the hash %$useflags.
+# If $flag does not exist, the entry becomes an empty array
 
 sub entry {
-	my ($useflags, $name) = @_;
-	exists(${$useflags}{$name}) or ${$useflags}{$name} = ['','','','',''];
-	return ${$useflags}{$name}
+	my ($useflags, $flag) = @_;
+	exists(${$useflags}{$flag}) or ${$useflags}{$flag} = ['','','','',''];
+	return ${$useflags}{$flag}
 }
 
-# Consider entry $name in the hash %$useflags - this is an array.
+# Consider entry $flag in the hash %$useflags - this is an array.
 # If the array entry $nr is empty (or if $force is true), store $value.
 # If in addition $secnr is nonempty (and $value is stored), store the value
 # also into array entry $secnr.
 
 sub store {
-	my ($force, $useflags, $name, $nr, $secnr, $value) = @_;
-	my $entry = &entry($useflags, $name);
+	my ($force, $useflags, $flag, $nr, $secnr, $value) = @_;
+	my $entry = &entry($useflags, $flag);
 	if($force || ($entry->[$nr] eq '')) {
 		$entry->[$nr] = $value;
 		$entry->[$secnr] = $value if($secnr ne '')
@@ -336,9 +361,9 @@ sub readprofile {
 		}
 		close($in);
 		for my $p (@parents) {
-			my $name = File::Spec->file_name_is_absolute($p) ?
+			my $dirname = File::Spec->file_name_is_absolute($p) ?
 				$p : File::Spec->catdir($profile, $p);
-			&readprofile(1, $name, $useflags, $count + 1)
+			&readprofile(1, $dirname, $useflags, $count + 1)
 		}
 	}
 	&readprofiledata($profile, $useflags, 1)
@@ -415,12 +440,11 @@ sub useset_profile {
 	for(split()) {
 		chomp();
 		s{^\s*([^\s]*).*$}{$1};
-		if($_ ne '') {
-			if(m{^\-(.*)}) {
-				&store('', $useflags, $1, $default, $set, 0)
-			} else {
-				&store('', $useflags, $_, $default, $set, 1)
-			}
+		next if($_ eq '');
+		if(m{^\-(.*)}) {
+			&store('', $useflags, $1, $default, $set, 0)
+		} else {
+			&store('', $useflags, $_, $default, $set, 1)
 		}
 	}
 }
@@ -550,8 +574,8 @@ sub printflags { my($useflags) = @_;
 }
 
 sub saveflags {
-	my ($useflags, $name) = @_;
-	open(my $out, '>', $name) or &fatal("cannot write to $name");
+	my ($useflags, $filename) = @_;
+	open(my $out, '>', $filename) or &fatal("cannot write to $filename");
 	select($out);
 	&printflags($useflags);
 	close($out);
@@ -559,9 +583,9 @@ sub saveflags {
 }
 
 sub loadflags {
-	my ($useflags, $name) = @_;
+	my ($useflags, $filename) = @_;
 	%{$useflags} = ();
-	open(my $in, '<', $name) or &fatal("cannot read $name");
+	open(my $in, '<', $filename) or &fatal("cannot read $filename");
 	while(<$in>) {
 		chomp();
 		s{^\s*}{};
@@ -637,25 +661,25 @@ my %oldflags = ();
 keys(%oldflags) = 2000;
 
 if($action =~ m{^save$}i || $action =~ m{^store}i) {
-	my $name = $savepath;
+	my $filename = $savepath;
 	if(scalar(@ARGV) == 2) {
-		$name = $ARGV[1]
+		$filename = $ARGV[1]
 	} elsif(scalar(@ARGV) != 1) {
 		&pod2usage('too many arguments for "save"')
 	}
 	&getflags(\%useflags);
-	&saveflags(\%useflags, $name)
+	&saveflags(\%useflags, $filename)
 } elsif($action =~ m{^echo$}i || $action =~ m{^print$}i) {
 	&getflags(\%useflags);
 	&printflags(\%useflags)
 } elsif($action =~ m{^cat$}i || $action =~ m{^old$}i || $action =~ m{^saved$}i) {
-	my $name = $savepath;
+	my $filename = $savepath;
 	if(scalar(@ARGV) == 2) {
-		$name = $ARGV[1]
+		$filename = $ARGV[1]
 	} elsif(scalar(@ARGV) != 1) {
 		&pod2usage('too many arguments for "cat"')
 	}
-	&loadflags(\%useflags, $name);
+	&loadflags(\%useflags, $filename);
 	&printflags(\%useflags)
 } elsif($action =~ m{^diff\D*\d}i || $action =~ m{^comp\D*\d}i) {
 	&loadflags(\%useflags, "/gentoo32$savepath");
