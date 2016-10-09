@@ -13,7 +13,8 @@ these files are ignored by this script.
 If you have installed app-portage/eix, this script is faster
 (with >=eix-0.27.7 considerably faster and more secure).
 
-For installation, copy useflags with executable permission in your path.
-To obtain support for zsh completion, you can copy _useflags to a
-directory of zsh's $fpath
+For installation, copy the content of bin/ with executable permission
+in your PATH (perhaps /usr/bin). To obtain support for zsh completion,
+you can copy the content of zsh/ to a directory of zsh's $fpath
+(perhaps /usr/share/zsh/site-functions/).
 There is also an ebuild in the mv overlay (which is available by layman).

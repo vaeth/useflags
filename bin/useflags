@@ -1,7 +1,10 @@
 #!/usr/bin/env perl
 BEGIN { require 5.006_001 }
-our $VERSION = 'v4.1.0';
-eval "package Useflags $VERSION" if($] ge '5.012');
+package Useflags;
+our $VERSION = 'v4.1.1';
+eval { $VERSION = version->declare($VERSION) };
+eval 'use version 0.77; $VERSION = version->declare($VERSION)' if($@);
+
 use strict;
 use integer;
 use File::Spec ();
