@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 BEGIN { require 5.006_001 }
 package Useflags;
-our $VERSION = 'v4.1.1';
+our $VERSION = 'v4.1.2';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if($@);
 

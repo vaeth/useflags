@@ -25,7 +25,6 @@ cmds)
 	'help:print brief help'
 	'man:print verbose manpage'
 	)
-	_describe -t commands 'command' cmds
-	ret=$?;;
+	_describe -t commands 'command' cmds && ret=0;;
 esac
 return ret
