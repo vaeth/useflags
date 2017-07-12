@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 BEGIN { require 5.006_001 }
 package Useflags;
-our $VERSION = 'v4.1.2';
+our $VERSION = 'v4.1.3';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if($@);
 
@@ -552,11 +552,11 @@ printf \"\%s\" \"\$USE\"\' bash $file`
 }
 
 
-# Now we interpret the value of the USE variable in /etc/make.conf:
+# Now we interpret the value of the USE variable in /etc/portage/make.conf:
 sub useset_make_conf {
 	($_, my $useflags) = @_;
 	(m{^\s*$}) and
-		&fatal('No USE variable specified in /etc/make.conf or /etc/portage/make.conf');
+		&fatal('No USE variable specified in /etc/portage/make.conf or /etc/make.conf');
 	for(split()) {
 		chomp();
 		s{^\s*([^\s]*).*$}{$1};
