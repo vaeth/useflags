@@ -1,7 +1,8 @@
 #!/usr/bin/env perl
+# SPDX-License-Identifier: BSD-3-Clause
 BEGIN { require 5.006_001 }
 package Useflags;
-our $VERSION = 'v4.1.3';
+our $VERSION = 'v4.1.4';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if($@);
 

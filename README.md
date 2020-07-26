@@ -1,7 +1,8 @@
 # useflags
 
 (C) Martin Väth (martin at mvath.de).
-This project is under the BSD license.
+This project is under the BSD license 2.0 (“3-clause BSD license”).
+SPDX-License-Identifier: BSD-3-Clause
 
 This is a utility for the Gentoo portage system.
 
