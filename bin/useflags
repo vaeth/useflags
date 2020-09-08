@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 BEGIN { require 5.006_001 }
 package Useflags;
-our $VERSION = 'v4.1.4';
+our $VERSION = 'v4.2.0';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if($@);
 
@@ -489,7 +489,9 @@ sub getflags_eix() {
 		'etc', 'portage', 'profile'), $useflags, '');
 	my $iuse = &read_var('USE.profile');
 	&useset_profile($iuse, $useflags);
-	&useset_make_conf(&read_var('USE'), $useflags);
+	my $use_make_conf = &read_var('USE.make_conf');
+	$use_make_conf = &read_var('USE') if ($use_make_conf eq '');
+	&useset_make_conf($use_make_conf, $useflags);
 }
 
 sub getflags_portageq() {
